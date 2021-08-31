@@ -1,8 +1,11 @@
+import { UseGuards } from "@nestjs/common";
 import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
-import { createSecureServer } from "http2";
-import { errorMonitor } from "node:events";
+import { AuthUser } from "src/auth/auth-user.decorator";
+import { AuthGuard } from "src/auth/auth.guard";
 import { CreateAccountInput, CreateAccountOutput } from "./dtos/create-account.dto";
+import { EditPrifileInput, EditProfileOutput } from "./dtos/edit-profile.dto";
 import { LoginInput, LoginOutput } from "./dtos/login.dto";
+import { UserProfileInput, UserProfileOutput } from "./dtos/user-profile.dto";
 import { User } from "./entities/user.entity";
 import { UsersService } from "./users.service";
 
@@ -38,5 +41,51 @@ export class  UsersResolver {
         }
     }
 
+    @Query(returns => User)
+    @UseGuards(AuthGuard)
+    me(
+        @AuthUser() authUser: User
+    ){
+        return authUser;
+    }
+
+    @UseGuards(AuthGuard)
+    @Query(returns => UserProfileOutput)
+    async userProfile(@Args() userProfileInput:UserProfileInput): Promise<UserProfileOutput>{
+        try {
+            const user = await this.userService.findById(userProfileInput.userId);
+            if(!user){
+                throw Error();
+            }
+            return {
+                ok: Boolean(user),
+                user,
+            }
+        } catch (e) {
+            return {
+                ok:false,
+                error: "User Not Found"
+            }
+        }
+    }
+
+    @UseGuards(AuthGuard)
+    @Mutation(returns => EditProfileOutput)
+    async editProfile(
+        @AuthUser() authUser: User,
+        @Args("input") editProfileInput: EditPrifileInput
+        ): Promise<EditProfileOutput>{
+        try {
+            await this.userService.editProfile(authUser.id, editProfileInput);
+            return {
+                ok: true
+            }
+        } catch (error) {
+            return {
+                ok: false,
+                error
+            }
+        }
+    }
 
 }
