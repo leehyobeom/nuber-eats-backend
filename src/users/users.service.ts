@@ -85,12 +85,13 @@ export class UsersService {
 
     async findById(id:number): Promise<UserProfileOutput>{
         try {
-            const user = this.users.findOne({ id });
+            const user = await this.users.findOne({ id });
             if(!user){
                 throw Error();
             }
             return {
                 ok: Boolean(user),
+                user: user
             }
         } catch (e) {
             return {
@@ -106,12 +107,16 @@ export class UsersService {
             if(email){
                 user.email = email
                 user.emailVerified = false
-                const verification = await this.verification.save(this.verification.create({user}));
+                await this.verification.delete({ user: { id: user.id } });
+                const verification = await this.verification.save(
+                    this.verification.create({user})
+                );
                 this.mailService.sendVerificationEmail(user.email, verification.code);
             }
             if(password){
                 user.password = password
             } 
+            await this.users.save(user);
             return {
                 ok:true
             }        
@@ -137,7 +142,7 @@ export class UsersService {
                     ok:true
                 }       
             }
-            throw new Error();            
+            return {ok:false, error: 'Verification not found'};
         } catch (e) {       
             return {
                 ok:false,
